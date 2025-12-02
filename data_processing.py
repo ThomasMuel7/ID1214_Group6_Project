@@ -18,6 +18,7 @@ rushing_offense = pd.read_excel('data/2025_rushing_offense.xlsx')
 scoring_defense = pd.read_excel('data/2025_scoring_defense.xlsx')
 scoring_offense = pd.read_excel('data/2025_scoring_offense.xlsx')
 scores = pd.read_csv('data/2025_scores.csv')
+upcoming_games = pd.read_excel('data/upcoming_games.xlsx')
 
 # Drop 'gms' column from all datasets
 datasets = [downs_defense, downs_offense, kickoff_offense, kickoff_defense,
@@ -63,25 +64,37 @@ team_data_visitor = team_data_visitor.rename(columns={col: col + '_visitor' for 
 
 # Merge with home team data
 new_scores = new_scores.merge(team_data_home, left_on='Home', right_on=team_col, how='left')
+upcoming_games = upcoming_games.merge(team_data_home, left_on='Home', right_on=team_col, how='left')
 # Merge with visitor team data
 new_scores = new_scores.merge(team_data_visitor, left_on='Visitor', right_on=team_col, how='left')
+upcoming_games = upcoming_games.merge(team_data_visitor, left_on='Visitor', right_on=team_col, how='left')
 
 # Drop the team identifier columns that were created during merge
 new_scores = new_scores.drop(columns=[team_col + '_x', team_col + '_y'], errors='ignore')
+upcoming_games = upcoming_games.drop(columns=[team_col + '_x', team_col + '_y'], errors='ignore')
 
 # Calculate differences (home - visitor) for all team statistics
 home_cols = [col for col in new_scores.columns if col.endswith('_home')]
 for col in home_cols:
     visitor_col = col.replace('_home', '_visitor')
     if visitor_col in new_scores.columns:
-        print(col, visitor_col)
         diff_col = col.replace('_home', '_diff')
         new_scores[diff_col] = new_scores[col] - new_scores[visitor_col]
 
+upcoming_cols = [col for col in upcoming_games.columns if col.endswith('_home')]
+for col in upcoming_cols:
+    visitor_col = col.replace('_home', '_visitor')
+    if visitor_col in upcoming_games.columns:
+        diff_col = col.replace('_home', '_diff')
+        upcoming_games[diff_col] = upcoming_games[col] - upcoming_games[visitor_col]
+        
 # Drop the _home and _visitor columns to keep only differences
 new_scores = new_scores.drop(columns=[col for col in new_scores.columns if col.endswith('_home') or col.endswith('_visitor')], errors='ignore')
 new_scores['Home_win'] = (new_scores['Home_pts'] > new_scores['Visitor_pts']).astype(int)
 new_scores = new_scores.drop(columns=['Home_pts', 'Visitor_pts'], errors='ignore')
 
+upcoming_games = upcoming_games.drop(columns=[col for col in upcoming_games.columns if col.endswith('_home') or col.endswith('_visitor')], errors='ignore')
+upcoming_games = upcoming_games.drop(columns=['Home_pts', 'Visitor_pts'], errors='ignore')
 # Save the final dataset
 new_scores.to_csv('data/2025_processed_scores.csv', index=False)
+upcoming_games.to_csv('data/2025_processed_upcoming_games.csv', index=False)

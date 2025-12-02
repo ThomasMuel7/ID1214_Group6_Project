@@ -1,0 +1,2 @@
+num_layers,neurons_per_layer,dropout_rates,best_epoch,best_val_accuracy
+2,"[256, 32]",[0.5],2,0.8018199258380466
