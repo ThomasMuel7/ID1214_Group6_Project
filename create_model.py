@@ -57,13 +57,13 @@ for i in range(1000):
     
     history = history.history.get('val_accuracy', [])
     if history :
-        max_accuracy = max(history)
-        max_idx = len(history) - 1 - history[::-1].index(max_accuracy)
+        validation_accuracy = max(history)
+        max_idx = len(history) - 1 - history[::-1].index(validation_accuracy)
         # Evaluate on test set
         y_pred_prob = model.predict(X_test_scaled, verbose=0)
         y_pred = (y_pred_prob > 0.5).astype(int).flatten()
         test_acc = (y_pred == y_test).mean()
-        new_accuracy = max_accuracy*0.3 + test_acc*0.7
+        new_accuracy = validation_accuracy*0.3 + test_acc*0.7
         if new_accuracy > best_accuracy:
             best_accuracy = new_accuracy
             best_results = {
