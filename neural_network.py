@@ -37,7 +37,7 @@ def load_data(use_pca=False, n_components=30):
     X_upcoming = upcoming_scores_clean[feature_cols].values
     
     # Split data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=SEED)
         
     # Standardize features
     scaler = StandardScaler()
