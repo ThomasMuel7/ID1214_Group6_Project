@@ -106,13 +106,13 @@ class HybridBinaryClassifier(nn.Module):
             x = x.reshape(-1, 1)
         return x
 
-def train_model(model, train_loader, val_loader, epochs=50, patience=5):
+def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3):
     criterion = nn.BCELoss()
     opt = optim.Adam(model.parameters(), lr=0.001)
     best_val_loss = float('inf')
     best_state = None
     epochs_no_improve = 0
-    
+    history = {'train_loss': [], 'val_loss': []}
     for epoch in range(1, epochs+1):
         model.train()
         train_loss = 0.0
@@ -144,11 +144,13 @@ def train_model(model, train_loader, val_loader, epochs=50, patience=5):
             if epochs_no_improve >= patience:
                 print(f"Early stopping at epoch {epoch}")
                 break
+        history['train_loss'].append(train_loss)
+        history['val_loss'].append(val_loss)
         print(f"Epoch {epoch:02d}/{epochs} - loss: {train_loss:.4f} - val_loss: {val_loss:.4f}")
         
     if best_state is not None:
         model.load_state_dict(best_state)
-    return model
+    return model, history
 
 
 def test_model(Xte_t, y_test, model):
@@ -192,12 +194,19 @@ def predictions(use_pca, X_upcoming_t, results, model):
     print(f"Predictions saved to {filename}")
     print(results.head())
 
+def plot_history(history):
+    plt.plot(history['train_loss'], label='Train Loss')
+    plt.plot(history['val_loss'], label='Validation Loss')
+    plt.legend()
+    plt.show()
+    
 #------- Main code execution -------
 use_pca = True
 n_components = 30
 weight_shapes = {"theta": (reps, n_qubits, 3)}
 train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results, input_dim = transform_data(batch_size=20, use_pca=use_pca, n_components=n_components)
 model = HybridBinaryClassifier(num_dim=input_dim, n_qubits=n_qubits, weight_shapes=weight_shapes)
-model = train_model(model, train_loader, val_loader, epochs=50)
+model, history = train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
 test_model(Xte_t, yte_t, model)
 predictions(use_pca=use_pca, X_upcoming_t=X_upcoming_t, results=results, model=model)
+plot_history(history)

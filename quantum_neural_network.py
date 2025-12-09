@@ -109,10 +109,13 @@ class BatchedQNodeLayer(nn.Module):
             outs.append(p.reshape(()))
         return torch.stack(outs, dim=0).unsqueeze(1)
 
-def train_model(model, train_loader, val_loader, epochs=15, lr=0.005):  
-    opt = torch.optim.Adam(model.parameters(), lr=lr)
+def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3):
     criterion = nn.BCELoss()
-
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    best_val_loss = float('inf')
+    best_state = None
+    epochs_no_improve = 0
+    history = {'train_loss': [], 'val_loss': []}
     for epoch in range(1, epochs+1):
         model.train()
         train_loss = 0.0
@@ -123,6 +126,7 @@ def train_model(model, train_loader, val_loader, epochs=15, lr=0.005):
             loss.backward()
             opt.step()
             train_loss += loss.item() * xb.size(0)
+            
         train_loss /= len(train_loader.dataset)
 
         model.eval()
@@ -134,8 +138,22 @@ def train_model(model, train_loader, val_loader, epochs=15, lr=0.005):
                 val_loss += loss.item() * xb.size(0)
         val_loss /= len(val_loader.dataset)
 
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_state = {k: v.clone() for k, v in model.state_dict().items()}
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                print(f"Early stopping at epoch {epoch}")
+                break
+        history['train_loss'].append(train_loss)
+        history['val_loss'].append(val_loss)
         print(f"Epoch {epoch:02d}/{epochs} - loss: {train_loss:.4f} - val_loss: {val_loss:.4f}")
-    return model
+        
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    return model, history
 
 def test_model(Xte_t, y_test, model):
     model.eval()
@@ -169,10 +187,16 @@ def predictions(X_upcoming_t, results, model):
     print(f"Predictions saved to ./predictions/quantum_predictions.xlsx")
     print(results.head())
 
+def plot_history(history):
+    plt.plot(history['train_loss'], label='Train Loss')
+    plt.plot(history['val_loss'], label='Validation Loss')
+    plt.legend()
+    plt.show()
 #------- Main code execution -------
 weight_shapes = {"theta": (reps, n_qubits, 3)}
 model = nn.Sequential(BatchedQNodeLayer(qnode, weight_shapes)).double()
 train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results = transform_data(batch_size=20)
-model = train_model(model, train_loader, val_loader, epochs=15, lr=5e-3)
+model, history = train_model(model, train_loader, val_loader, epochs=15, patience=5, lr=1e-3)
 test_model(Xte_t, yte_t, model)
 predictions(X_upcoming_t, results, model)
+plot_history(history)

@@ -48,11 +48,11 @@ def load_data(use_pca=False, n_components=30):
 def create_model(input_dim):
     model = keras.Sequential([
         layers.InputLayer(input_shape=(input_dim,)),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.2),
         layers.Dense(64, activation='relu'),
         layers.Dropout(0.2),
         layers.Dense(32, activation='relu'),
+        layers.Dropout(0.2),
+        layers.Dense(16, activation='relu'),
         layers.Dropout(0.2),
         layers.Dense(1, activation='sigmoid'),
     ])
@@ -65,7 +65,7 @@ def train_model(model, X_train_scaled, y_train, epoch=500, batch_size=32):
         patience=20,
         restore_best_weights=True
     )          
-    model.fit(
+    history = model.fit(
         X_train_scaled, y_train,
         epochs=epoch,
         batch_size=batch_size,
@@ -73,7 +73,7 @@ def train_model(model, X_train_scaled, y_train, epoch=500, batch_size=32):
         callbacks=[early_stop],
         verbose=1
     )
-    return model
+    return model, history
 
 def test_model(model, X_test_scaled, y_test):
     preds = model.predict(X_test_scaled, verbose=0)
@@ -107,13 +107,20 @@ def predictions(use_pca, X_predict, results, model):
     results.to_excel(filename, index=False)
     print(f"Predictions saved to {filename}")
     print(results.head())
+
+def plot_history(history):
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.legend()
+    plt.show()
     
 # --- Main Execution ---
-use_pca = True
-n_components = 30
+use_pca = False
+n_components = 64
 X_train_scaled, X_test_scaled, X_upcoming_scaled, y_train, y_test, results, number_feature_cols = load_data(use_pca=use_pca, n_components=n_components) 
 
 model = create_model(input_dim=number_feature_cols)
-model = train_model(model, X_train_scaled, y_train, epoch=500)
+model, history = train_model(model, X_train_scaled, y_train, epoch=500)
 test_model(model, X_test_scaled, y_test)
 predictions(use_pca, X_upcoming_scaled, results, model)
+plot_history(history)
