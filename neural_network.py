@@ -48,12 +48,9 @@ def load_data(use_pca=False, n_components=30):
 def create_model(input_dim):
     model = keras.Sequential([
         layers.InputLayer(input_shape=(input_dim,)),
+        layers.Dense(128, activation='relu'),
         layers.Dense(64, activation='relu'),
-        layers.Dropout(0.2),
         layers.Dense(32, activation='relu'),
-        layers.Dropout(0.2),
-        layers.Dense(16, activation='relu'),
-        layers.Dropout(0.2),
         layers.Dense(1, activation='sigmoid'),
     ])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -117,8 +114,8 @@ def plot_history(history):
 # --- Main Execution ---
 use_pca = False
 n_components = 64
-X_train_scaled, X_test_scaled, X_upcoming_scaled, y_train, y_test, results, number_feature_cols = load_data(use_pca=use_pca, n_components=n_components) 
 
+X_train_scaled, X_test_scaled, X_upcoming_scaled, y_train, y_test, results, number_feature_cols = load_data(use_pca=use_pca, n_components=n_components) 
 model = create_model(input_dim=number_feature_cols)
 model, history = train_model(model, X_train_scaled, y_train, epoch=500)
 test_model(model, X_test_scaled, y_test)

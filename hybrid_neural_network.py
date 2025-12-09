@@ -18,17 +18,13 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.set_default_dtype(torch.float64)
 
-n_qubits = 8
-reps = 2
+n_qubits = 16
+reps = 1
 dev = qml.device("lightning.qubit", wires=n_qubits)
 
 def process_data(use_pca=False, n_components=30):
-    try:
-        processed_scores = pd.read_csv('data/2025_processed_scores.csv')
-        upcoming_games = pd.read_csv('data/2025_processed_upcoming_games.csv')
-    except FileNotFoundError:
-        print("CRITICAL ERROR: Data files not found in 'data/' directory.")
-        return None
+    processed_scores = pd.read_csv('data/2025_processed_scores.csv')
+    upcoming_games = pd.read_csv('data/2025_processed_upcoming_games.csv')
 
     scores_clean = processed_scores.dropna()
     upcoming_games = upcoming_games.dropna()
@@ -62,8 +58,7 @@ def process_data(use_pca=False, n_components=30):
 
 def transform_data(use_pca=False, n_components=30, batch_size=20):
     data = process_data(use_pca=use_pca, n_components=n_components)
-    if data is None: return None
-    
+
     X_train, X_test, X_val, X_upcoming, y_train, y_test, y_val, results, input_dim = data
 
     Xtr_t = torch.from_numpy(X_train).double()
@@ -88,9 +83,9 @@ def qnode(inputs, theta):
 class HybridBinaryClassifier(nn.Module):
     def __init__(self, num_dim, n_qubits, weight_shapes):
         super().__init__()
-        self.fc1 = nn.Linear(num_dim, 32)
-        self.fc2 = nn.Linear(32, 16)
-        self.fc3 = nn.Linear(16, n_qubits) 
+        self.fc1 = nn.Linear(num_dim, 64)
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, n_qubits) 
         self.act1 = nn.ReLU()
         self.act_out = nn.Tanh() 
         self.qlayer = qml.qnn.TorchLayer(qnode, weight_shapes)
@@ -201,9 +196,10 @@ def plot_history(history):
     plt.show()
     
 #------- Main code execution -------
-use_pca = True
+use_pca = False
 n_components = 30
 weight_shapes = {"theta": (reps, n_qubits, 3)}
+
 train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results, input_dim = transform_data(batch_size=20, use_pca=use_pca, n_components=n_components)
 model = HybridBinaryClassifier(num_dim=input_dim, n_qubits=n_qubits, weight_shapes=weight_shapes)
 model, history = train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)

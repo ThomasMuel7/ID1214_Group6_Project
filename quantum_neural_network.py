@@ -15,10 +15,10 @@ import torch.nn as nn
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
-
+reps = 3
 n_qubits = 8
 dev = qml.device('default.qubit', wires=n_qubits)
-reps = 2
+
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
@@ -192,8 +192,10 @@ def plot_history(history):
     plt.plot(history['val_loss'], label='Validation Loss')
     plt.legend()
     plt.show()
+    
 #------- Main code execution -------
 weight_shapes = {"theta": (reps, n_qubits, 3)}
+
 model = nn.Sequential(BatchedQNodeLayer(qnode, weight_shapes)).double()
 train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results = transform_data(batch_size=20)
 model, history = train_model(model, train_loader, val_loader, epochs=15, patience=5, lr=1e-3)
