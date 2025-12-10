@@ -121,8 +121,8 @@ def plot_history(history):
     plt.show()
     
 # --- Main Execution ---
-use_pca = False
-n_components = 64
+use_pca = True
+n_components = 32
 
 X_train_scaled, X_test_scaled, X_upcoming_scaled, y_train, y_test, results, number_feature_cols = load_data(use_pca=use_pca, n_components=n_components) 
 model = create_model(input_dim=number_feature_cols)
