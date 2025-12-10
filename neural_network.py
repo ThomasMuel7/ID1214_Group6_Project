@@ -19,8 +19,8 @@ tf.random.set_seed(SEED)
 
 def load_data(use_pca=False, n_components=30):   
     # Load processed scores with team statistics
-    scores = pd.read_csv('data/2025_processed_scores.csv')
-    upcoming_scores = pd.read_csv('data/2025_processed_upcoming_games.csv')
+    scores = pd.read_excel('processed_data/2025_processed_scores.xlsx')
+    upcoming_scores = pd.read_excel('processed_data/2025_processed_upcoming_games.xlsx')
     
     upcoming_scores_clean = upcoming_scores.dropna()
     scores_clean = scores.dropna()

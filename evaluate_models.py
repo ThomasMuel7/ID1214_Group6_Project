@@ -1,6 +1,6 @@
 import pandas as pd
 
-upcoming_games = pd.read_excel('data/upcoming_games_scores.xlsx')
+upcoming_games = pd.read_excel('prep_data/2025_upcoming_scores.xlsx')
 hybrid = pd.read_excel('predictions/hybrid_predictions.xlsx')
 classical = pd.read_excel('predictions/classical_predictions.xlsx')
 quantum = pd.read_excel('predictions/quantum_predictions.xlsx')

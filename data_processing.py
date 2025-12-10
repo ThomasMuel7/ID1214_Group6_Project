@@ -1,100 +1,169 @@
 import pandas as pd
+import os
 
-# Load all data files
-downs_defense = pd.read_excel('data/2025_downs_defense.xlsx')
-downs_offense = pd.read_excel('data/2025_downs_offense.xlsx')
-kickoff_offense = pd.read_excel('data/2025_kickoff-return_offense.xlsx')
-kickoff_defense = pd.read_excel('data/2025_kickoff-return_defense.xlsx')
-overall_defense = pd.read_excel('data/2025_overall_defense.xlsx')
-overall_offense = pd.read_excel('data/2025_overall_offense.xlsx')
-passing_defense = pd.read_excel('data/2025_passing_defense.xlsx')
-passing_offense = pd.read_excel('data/2025_passing_offense.xlsx')
-punt_defense = pd.read_excel('data/2025_punt-return_defense.xlsx')
-punt_offense = pd.read_excel('data/2025_punt-return_offense.xlsx')
-punting_defense = pd.read_excel('data/2025_punting_defense.xlsx')
-punting_offense = pd.read_excel('data/2025_punting_offense.xlsx')
-rushing_defense = pd.read_excel('data/2025_rushing_defense.xlsx')
-rushing_offense = pd.read_excel('data/2025_rushing_offense.xlsx')
-scoring_defense = pd.read_excel('data/2025_scoring_defense.xlsx')
-scoring_offense = pd.read_excel('data/2025_scoring_offense.xlsx')
-scores = pd.read_csv('data/2025_scores.csv')
-upcoming_games = pd.read_excel('data/upcoming_games.xlsx')
+# Create output directory
+os.makedirs('processed_data', exist_ok=True)
 
-# Drop 'gms' column from all datasets
+# ---------------------------------------------------------
+# 1. LOAD DATA
+# ---------------------------------------------------------
+
+# Stats
+downs_defense = pd.read_excel('prep_data/2025_downs_defense.xlsx')
+downs_offense = pd.read_excel('prep_data/2025_downs_offense.xlsx')
+kickoff_offense = pd.read_excel('prep_data/2025_kickoff-returns_offense.xlsx')
+kickoff_defense = pd.read_excel('prep_data/2025_kickoff-returns_defense.xlsx')
+overall_defense = pd.read_excel('prep_data/2025_totals_defense.xlsx')
+overall_offense = pd.read_excel('prep_data/2025_totals_offense.xlsx')
+passing_defense = pd.read_excel('prep_data/2025_passing_defense.xlsx')
+passing_offense = pd.read_excel('prep_data/2025_passing_offense.xlsx')
+punt_defense = pd.read_excel('prep_data/2025_punt-returns_defense.xlsx')
+punt_offense = pd.read_excel('prep_data/2025_punt-returns_offense.xlsx')
+punting_defense = pd.read_excel('prep_data/2025_punting_defense.xlsx')
+punting_offense = pd.read_excel('prep_data/2025_punting_offense.xlsx')
+rushing_defense = pd.read_excel('prep_data/2025_rushing_defense.xlsx')
+rushing_offense = pd.read_excel('prep_data/2025_rushing_offense.xlsx')
+scoring_defense = pd.read_excel('prep_data/2025_scoring_defense.xlsx')
+scoring_offense = pd.read_excel('prep_data/2025_scoring_offense.xlsx')
+
+# Scores and Schedules
+scores = pd.read_excel('prep_data/2025_scores.xlsx')
+upcoming_games = pd.read_excel('prep_data/2025_upcoming_games.xlsx')
+
+# ---------------------------------------------------------
+# 2. CLEANING
+# ---------------------------------------------------------
+
 datasets = [downs_defense, downs_offense, kickoff_offense, kickoff_defense,
             overall_defense, overall_offense, passing_defense, passing_offense,
             punt_defense, punt_offense, punting_defense, punting_offense,
             rushing_defense, rushing_offense, scoring_defense, scoring_offense]
 
 for df in datasets:
-    if 'Gms' in df.columns:
-        df.drop('Gms', axis=1, inplace=True)
+    # Drop 'Gms' or 'Games' column if it exists
+    cols_to_drop = [c for c in df.columns if 'Gms' in str(c) or 'Games' in str(c)]
+    if cols_to_drop:
+        df.drop(cols_to_drop, axis=1, inplace=True)
+    
+    team_col_name = df.columns[0]
+    df[team_col_name] = df[team_col_name].astype(str).str.strip()
 
-#combine all datasets into a single DataFrame with explicit suffixes
+# ---------------------------------------------------------
+# 3. MERGING STATS
+# ---------------------------------------------------------
+
+# Initialize team_data with overall_offense
+# We assume the first column is the Team Name
 team_col = overall_offense.columns[0]
 team_data = overall_offense.copy()
+# Rename columns to include suffix
 team_data.columns = [col if col == team_col else col + '_overall_offense' for col in team_data.columns]
 
-team_data = team_data.merge(overall_defense.rename(columns={col: col + '_overall_defense' if col != team_col else col for col in overall_defense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(passing_offense.rename(columns={col: col + '_passing_offense' if col != team_col else col for col in passing_offense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(passing_defense.rename(columns={col: col + '_passing_defense' if col != team_col else col for col in passing_defense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(rushing_offense.rename(columns={col: col + '_rushing_offense' if col != team_col else col for col in rushing_offense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(rushing_defense.rename(columns={col: col + '_rushing_defense' if col != team_col else col for col in rushing_defense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(downs_offense.rename(columns={col: col + '_downs_offense' if col != team_col else col for col in downs_offense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(downs_defense.rename(columns={col: col + '_downs_defense' if col != team_col else col for col in downs_defense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(kickoff_offense.rename(columns={col: col + '_kickoff_offense' if col != team_col else col for col in kickoff_offense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(kickoff_defense.rename(columns={col: col + '_kickoff_defense' if col != team_col else col for col in kickoff_defense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(punt_offense.rename(columns={col: col + '_punt_offense' if col != team_col else col for col in punt_offense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(punt_defense.rename(columns={col: col + '_punt_defense' if col != team_col else col for col in punt_defense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(punting_offense.rename(columns={col: col + '_punting_offense' if col != team_col else col for col in punting_offense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(punting_defense.rename(columns={col: col + '_punting_defense' if col != team_col else col for col in punting_defense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(scoring_offense.rename(columns={col: col + '_scoring_offense' if col != team_col else col for col in scoring_offense.columns}), on=team_col, how='outer')
-team_data = team_data.merge(scoring_defense.rename(columns={col: col + '_scoring_defense' if col != team_col else col for col in scoring_defense.columns}), on=team_col, how='outer')
+# Helper function to merge datasets
+def merge_stat(base_df, new_df, suffix):
+    # The joining column is assumed to be the first column in both
+    join_col_base = base_df.columns[0]
+    join_col_new = new_df.columns[0]
+    
+    # Rename columns in the new dataframe
+    renamed_df = new_df.rename(columns={
+        col: col + suffix if col != join_col_new else col 
+        for col in new_df.columns
+    })
+    
+    # Merge on the team name column
+    return base_df.merge(renamed_df, left_on=join_col_base, right_on=renamed_df.columns[0], how='outer')
 
-# Add the data of each team to the scores
-scores = scores.drop(columns='Overtime', errors='ignore')
+# Merge all statistics into one 'team_data' dataframe
+team_data = merge_stat(team_data, overall_defense, '_overall_defense')
+team_data = merge_stat(team_data, passing_offense, '_passing_offense')
+team_data = merge_stat(team_data, passing_defense, '_passing_defense')
+team_data = merge_stat(team_data, rushing_offense, '_rushing_offense')
+team_data = merge_stat(team_data, rushing_defense, '_rushing_defense')
+team_data = merge_stat(team_data, downs_offense, '_downs_offense')
+team_data = merge_stat(team_data, downs_defense, '_downs_defense')
+team_data = merge_stat(team_data, kickoff_offense, '_kickoff_offense')
+team_data = merge_stat(team_data, kickoff_defense, '_kickoff_defense')
+team_data = merge_stat(team_data, punt_offense, '_punt_offense')
+team_data = merge_stat(team_data, punt_defense, '_punt_defense')
+team_data = merge_stat(team_data, punting_offense, '_punting_offense')
+team_data = merge_stat(team_data, punting_defense, '_punting_defense')
+team_data = merge_stat(team_data, scoring_offense, '_scoring_offense')
+team_data = merge_stat(team_data, scoring_defense, '_scoring_defense')
+
+# ---------------------------------------------------------
+# 4. MERGE INTO SCORES AND UPCOMING
+# ---------------------------------------------------------
+
+scores = scores.drop(columns=['Overtime', 'OT'], errors='ignore')
 new_scores = scores.copy()
+upcoming_processed = upcoming_games.copy()
+
 team_data_home = team_data.copy()
 team_data_visitor = team_data.copy()
 
-# Rename columns to add _home and _visitor suffixes (except the team identifier column)
-team_col = team_data.columns[0]
-team_data_home = team_data_home.rename(columns={col: col + '_home' for col in team_data_home.columns if col != team_col})
-team_data_visitor = team_data_visitor.rename(columns={col: col + '_visitor' for col in team_data_visitor.columns if col != team_col})
+# The unique key in team_data is the first column (Team Name)
+join_key = team_data.columns[0]
 
-# Merge with home team data
-new_scores = new_scores.merge(team_data_home, left_on='Home', right_on=team_col, how='left')
-upcoming_games = upcoming_games.merge(team_data_home, left_on='Home', right_on=team_col, how='left')
-# Merge with visitor team data
-new_scores = new_scores.merge(team_data_visitor, left_on='Visitor', right_on=team_col, how='left')
-upcoming_games = upcoming_games.merge(team_data_visitor, left_on='Visitor', right_on=team_col, how='left')
+# Add _home / _visitor suffixes
+team_data_home = team_data_home.rename(columns={col: col + '_home' for col in team_data_home.columns if col != join_key})
+team_data_visitor = team_data_visitor.rename(columns={col: col + '_visitor' for col in team_data_visitor.columns if col != join_key})
 
-# Drop the team identifier columns that were created during merge
-new_scores = new_scores.drop(columns=[team_col + '_x', team_col + '_y'], errors='ignore')
-upcoming_games = upcoming_games.drop(columns=[team_col + '_x', team_col + '_y'], errors='ignore')
+# FIX: Clean Team Names in the Score files too
+new_scores['Home'] = new_scores['Home'].astype(str).str.strip()
+new_scores['Visitor'] = new_scores['Visitor'].astype(str).str.strip()
+upcoming_processed['Home'] = upcoming_processed['Home'].astype(str).str.strip()
+upcoming_processed['Visitor'] = upcoming_processed['Visitor'].astype(str).str.strip()
 
-# Calculate differences (home - visitor) for all team statistics
-home_cols = [col for col in new_scores.columns if col.endswith('_home')]
-for col in home_cols:
-    visitor_col = col.replace('_home', '_visitor')
-    if visitor_col in new_scores.columns:
-        diff_col = col.replace('_home', '_diff')
-        new_scores[diff_col] = new_scores[col] - new_scores[visitor_col]
+# Merge Home Stats
+new_scores = new_scores.merge(team_data_home, left_on='Home', right_on=join_key, how='left')
+upcoming_processed = upcoming_processed.merge(team_data_home, left_on='Home', right_on=join_key, how='left')
 
-upcoming_cols = [col for col in upcoming_games.columns if col.endswith('_home')]
-for col in upcoming_cols:
-    visitor_col = col.replace('_home', '_visitor')
-    if visitor_col in upcoming_games.columns:
-        diff_col = col.replace('_home', '_diff')
-        upcoming_games[diff_col] = upcoming_games[col] - upcoming_games[visitor_col]
-        
-# Drop the _home and _visitor columns to keep only differences
-new_scores = new_scores.drop(columns=[col for col in new_scores.columns if col.endswith('_home') or col.endswith('_visitor')], errors='ignore')
-new_scores['Home_win'] = (new_scores['Home_pts'] > new_scores['Visitor_pts']).astype(int)
-new_scores = new_scores.drop(columns=['Home_pts', 'Visitor_pts'], errors='ignore')
+# Merge Visitor Stats
+new_scores = new_scores.merge(team_data_visitor, left_on='Visitor', right_on=join_key, how='left')
+upcoming_processed = upcoming_processed.merge(team_data_visitor, left_on='Visitor', right_on=join_key, how='left')
 
-upcoming_games = upcoming_games.drop(columns=[col for col in upcoming_games.columns if col.endswith('_home') or col.endswith('_visitor')], errors='ignore')
-upcoming_games = upcoming_games.drop(columns=['Home_pts', 'Visitor_pts'], errors='ignore')
-# Save the final dataset
-new_scores.to_csv('data/2025_processed_scores.csv', index=False)
-upcoming_games.to_csv('data/2025_processed_upcoming_games.csv', index=False)
+# Drop the extra team name columns created by the merge
+cols_to_drop = [join_key + '_x', join_key + '_y']
+new_scores = new_scores.drop(columns=cols_to_drop, errors='ignore')
+upcoming_processed = upcoming_processed.drop(columns=cols_to_drop, errors='ignore')
+
+# ---------------------------------------------------------
+# 5. CALCULATE DIFFERENTIALS
+# ---------------------------------------------------------
+
+def calculate_diffs(df):
+    home_cols = [col for col in df.columns if col.endswith('_home')]
+    for col in home_cols:
+        visitor_col = col.replace('_home', '_visitor')
+        if visitor_col in df.columns:
+            diff_col = col.replace('_home', '_diff')
+            # Coerce to numeric ensures that even if Excel read some numbers as strings, the math works
+            df[diff_col] = pd.to_numeric(df[col], errors='coerce') - pd.to_numeric(df[visitor_col], errors='coerce')
+    
+    # Remove the raw _home and _visitor columns
+    cols_to_remove = [c for c in df.columns if c.endswith('_home') or c.endswith('_visitor')]
+    df.drop(columns=cols_to_remove, inplace=True, errors='ignore')
+    return df
+
+new_scores = calculate_diffs(new_scores)
+upcoming_processed = calculate_diffs(upcoming_processed)
+
+# Add Home_win target variable
+if 'Home_pts' in new_scores.columns and 'Visitor_pts' in new_scores.columns:
+    new_scores['Home_win'] = (new_scores['Home_pts'] > new_scores['Visitor_pts']).astype(int)
+    # Drop points columns to prevent data leakage in training
+    new_scores = new_scores.drop(columns=['Home_pts', 'Visitor_pts'], errors='ignore')
+
+# Remove points from upcoming games
+upcoming_processed = upcoming_processed.drop(columns=['Home_pts', 'Visitor_pts'], errors='ignore')
+
+# ---------------------------------------------------------
+# 6. SAVE
+# ---------------------------------------------------------
+
+new_scores.to_excel('processed_data/2025_processed_scores.xlsx', index=False)
+print('Saved processed_data/2025_processed_scores.xlsx')
+
+upcoming_processed.to_excel('processed_data/2025_processed_upcoming_games.xlsx', index=False)
+print('Saved processed_data/2025_processed_upcoming_games.xlsx')

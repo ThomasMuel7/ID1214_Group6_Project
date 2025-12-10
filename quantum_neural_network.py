@@ -26,8 +26,8 @@ torch.manual_seed(SEED)
 
 def process_data():
     # expect CSV in repository data folder with .csv extension
-    processed_scores = pd.read_csv('data/2025_processed_scores.csv')
-    upcoming_games = pd.read_csv('data/2025_processed_upcoming_games.csv')
+    processed_scores = pd.read_excel('processed_data/2025_processed_scores.xlsx')
+    upcoming_games = pd.read_excel('processed_data/2025_processed_upcoming_games.xlsx')
 
     scores_clean = processed_scores.dropna()
     upcoming_games = upcoming_games.dropna()
