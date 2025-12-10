@@ -4,7 +4,7 @@ upcoming_games = pd.read_excel('prep_data/2025_upcoming_scores.xlsx')
 hybrid = pd.read_excel('predictions/hybrid_predictions.xlsx')
 classical = pd.read_excel('predictions/classical_predictions.xlsx')
 quantum = pd.read_excel('predictions/quantum_predictions.xlsx')
-classical_pca = pd.read_excel('predictions/pca_classical_predictions.xlsx')
+classical_pca = pd.read_excel('predictions/classical_pca_predictions.xlsx')
 hybrid_pca = pd.read_excel('predictions/hybrid_pca_predictions.xlsx')
 
 
