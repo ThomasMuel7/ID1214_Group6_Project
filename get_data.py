@@ -9,8 +9,6 @@ import time
 
 os.makedirs("prep_data", exist_ok=True)
 
-# --- 1. CONFIGURATION & HEADERS ---
-
 def get_headers():
     return {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -18,8 +16,6 @@ def get_headers():
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.google.com/",
     }
-
-# --- 2. CLEANING HELPERS ---
 
 VALID_TEAMS = [
     "Arizona Cardinals", "Atlanta Falcons", "Baltimore Ravens", "Buffalo Bills",
@@ -33,7 +29,6 @@ VALID_TEAMS = [
 ]
 
 def clean_team_name_str(name):
-    """Cleans a team name string. Example: 'Arizona CardinalsARI' -> 'Arizona Cardinals'"""
     name_str = str(name)
     for valid_team in VALID_TEAMS:
         if valid_team in name_str:
@@ -41,7 +36,6 @@ def clean_team_name_str(name):
     return name_str.strip()
 
 def get_clean_team_name_html(td_element):
-    """Extracts team name from HTML, preferring the desktop view span."""
     full_name_span = td_element.find('span', class_='d-none d-xl-inline')
     if full_name_span:
         return full_name_span.get_text(strip=True)
@@ -54,7 +48,6 @@ def get_week_number(header_text):
         return 0
 
 def convert_fraction_to_float(val):
-    """Converts strings like '20/21' to float (0.952). Returns original val if not a fraction."""
     if isinstance(val, str) and '/' in val:
         try:
             parts = val.split('/')
@@ -68,8 +61,6 @@ def convert_fraction_to_float(val):
         return float(val)
     except (ValueError, TypeError):
         return 0.0
-
-# --- 3. SCRAPING FUNCTIONS ---
 
 def scrape_nfl_type_category_team_stats(type, category):
     url = f"https://www.footballdb.com/statistics/nfl/team-stats/{type}-{category}/2025/regular-season"
@@ -87,32 +78,24 @@ def scrape_nfl_type_category_team_stats(type, category):
             if df_list:
                 df = df_list[0]
                 
-                # Flatten MultiIndex columns
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = [' '.join([str(c) for c in col if "Unnamed" not in str(c)]).strip() for col in df.columns.values]
                 
-                # 1. Clean Team Names (First Column)
+                # Clean Team Names
                 if not df.empty:
                     team_col_name = df.columns[0]
                     df[team_col_name] = df[team_col_name].apply(clean_team_name_str)
                 
-                # 2. Specific Data Type Cleaning
-                
-                # Rule: For 'scoring', convert 'FG', 'PAT', 'XP' from '20/21' to float
+                # Specific Data Type Cleaning
                 if category == 'scoring':
-                    # Identify likely columns based on name containing FG, PAT, or XP
                     target_cols = [c for c in df.columns if any(sub in c.upper() for sub in ['FG', 'PAT', 'XP', 'XPT'])]
                     for col in target_cols:
                         df[col] = df[col].apply(convert_fraction_to_float)
                 
-                # Rule: For returns, remove 't' from 'Lg' columns and make int
                 if category in ['kickoff-returns', 'punt-returns']:
-                    # Identify likely columns ending in 'Lg' or named 'Lg'
                     lg_cols = [c for c in df.columns if c == 'Lg' or c.endswith(' Lg') or c.endswith('Lg')]
                     for col in lg_cols:
-                        # Remove 't' (case insensitive)
                         df[col] = df[col].astype(str).str.replace('t', '', case=False, regex=False)
-                        # Convert to int (via float to handle NaNs/strings safely)
                         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
 
                 df.to_excel(output_filename, index=False)
@@ -167,8 +150,6 @@ def parse_html_data(url="https://www.footballdb.com/games/index.html"):
     except Exception as e:
         print(f"Error parsing HTML data: {e}") 
     return weeks_data
-
-# --- 4. SAVING FUNCTIONS ---
 
 def save_training_scores(weeks_data, final_week=14, filename="prep_data/2025_scores.xlsx"):
     all_games = []
@@ -233,8 +214,6 @@ def save_upcoming_scores(weeks_data, first_week=15, filename="prep_data/2025_upc
             print(f"No played games found from week {first_week} until yesterday ({yesterday.date()}).")
     else:
         print(f"No game data available starting from week {first_week}.")
-
-# --- 5. MAIN ---
 
 def scrape_nfl_scores(mode='all', week=14):
     print("Scraping NFL Scores and Schedule...")

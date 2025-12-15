@@ -4,10 +4,6 @@ import os
 # Create output directory
 os.makedirs('processed_data', exist_ok=True)
 
-# ---------------------------------------------------------
-# 1. LOAD DATA
-# ---------------------------------------------------------
-
 # Stats
 downs_defense = pd.read_excel('prep_data/2025_downs_defense.xlsx')
 downs_offense = pd.read_excel('prep_data/2025_downs_offense.xlsx')
@@ -30,30 +26,20 @@ scoring_offense = pd.read_excel('prep_data/2025_scoring_offense.xlsx')
 scores = pd.read_excel('prep_data/2025_scores.xlsx')
 upcoming_games = pd.read_excel('prep_data/2025_upcoming_games.xlsx')
 
-# ---------------------------------------------------------
-# 2. CLEANING
-# ---------------------------------------------------------
-
 datasets = [downs_defense, downs_offense, kickoff_offense, kickoff_defense,
             overall_defense, overall_offense, passing_defense, passing_offense,
             punt_defense, punt_offense, punting_defense, punting_offense,
             rushing_defense, rushing_offense, scoring_defense, scoring_offense]
 
 for df in datasets:
-    # Drop 'Gms' or 'Games' column if it exists
-    cols_to_drop = [c for c in df.columns if 'Gms' in str(c) or 'Games' in str(c)]
+    cols_to_drop = [c for c in df.columns if 'Gms' in str(c)]
     if cols_to_drop:
         df.drop(cols_to_drop, axis=1, inplace=True)
     
     team_col_name = df.columns[0]
     df[team_col_name] = df[team_col_name].astype(str).str.strip()
 
-# ---------------------------------------------------------
-# 3. MERGING STATS
-# ---------------------------------------------------------
-
 # Initialize team_data with overall_offense
-# We assume the first column is the Team Name
 team_col = overall_offense.columns[0]
 team_data = overall_offense.copy()
 # Rename columns to include suffix
@@ -61,7 +47,6 @@ team_data.columns = [col if col == team_col else col + '_overall_offense' for co
 
 # Helper function to merge datasets
 def merge_stat(base_df, new_df, suffix):
-    # The joining column is assumed to be the first column in both
     join_col_base = base_df.columns[0]
     join_col_new = new_df.columns[0]
     
@@ -91,10 +76,7 @@ team_data = merge_stat(team_data, punting_defense, '_punting_defense')
 team_data = merge_stat(team_data, scoring_offense, '_scoring_offense')
 team_data = merge_stat(team_data, scoring_defense, '_scoring_defense')
 
-# ---------------------------------------------------------
-# 4. MERGE INTO SCORES AND UPCOMING
-# ---------------------------------------------------------
-
+#Drop a dummy column
 scores = scores.drop(columns=['Overtime', 'OT'], errors='ignore')
 new_scores = scores.copy()
 upcoming_processed = upcoming_games.copy()
@@ -102,7 +84,6 @@ upcoming_processed = upcoming_games.copy()
 team_data_home = team_data.copy()
 team_data_visitor = team_data.copy()
 
-# The unique key in team_data is the first column (Team Name)
 join_key = team_data.columns[0]
 
 # Add _home / _visitor suffixes
@@ -128,17 +109,12 @@ cols_to_drop = [join_key + '_x', join_key + '_y']
 new_scores = new_scores.drop(columns=cols_to_drop, errors='ignore')
 upcoming_processed = upcoming_processed.drop(columns=cols_to_drop, errors='ignore')
 
-# ---------------------------------------------------------
-# 5. CALCULATE DIFFERENTIALS
-# ---------------------------------------------------------
-
 def calculate_diffs(df):
     home_cols = [col for col in df.columns if col.endswith('_home')]
     for col in home_cols:
         visitor_col = col.replace('_home', '_visitor')
         if visitor_col in df.columns:
             diff_col = col.replace('_home', '_diff')
-            # Coerce to numeric ensures that even if Excel read some numbers as strings, the math works
             df[diff_col] = pd.to_numeric(df[col], errors='coerce') - pd.to_numeric(df[visitor_col], errors='coerce')
     
     # Remove the raw _home and _visitor columns
@@ -157,10 +133,6 @@ if 'Home_pts' in new_scores.columns and 'Visitor_pts' in new_scores.columns:
 
 # Remove points from upcoming games
 upcoming_processed = upcoming_processed.drop(columns=['Home_pts', 'Visitor_pts'], errors='ignore')
-
-# ---------------------------------------------------------
-# 6. SAVE
-# ---------------------------------------------------------
 
 new_scores.to_excel('processed_data/2025_processed_scores.xlsx', index=False)
 print('Saved processed_data/2025_processed_scores.xlsx')

@@ -15,9 +15,9 @@ import torch.nn as nn
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
-reps = 3
-n_qubits = 8
-dev = qml.device('default.qubit', wires=n_qubits)
+reps = 2
+n_qubits = 12
+dev = qml.device('lightning.qubit', wires=n_qubits)
 
 SEED = 42
 random.seed(SEED)
@@ -25,7 +25,6 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 def process_data():
-    # expect CSV in repository data folder with .csv extension
     processed_scores = pd.read_excel('processed_data/2025_processed_scores.xlsx')
     upcoming_games = pd.read_excel('processed_data/2025_processed_upcoming_games.xlsx')
 
@@ -80,11 +79,9 @@ def qnode(x, theta):
 class BatchedQNodeLayer(nn.Module):
     def __init__(self, qnode, weight_shapes):
         super().__init__()
-        # ensure torch interface
         if getattr(qnode, "interface", None) not in ("torch",):
             qnode = qml.QNode(qnode.func, qnode.device, interface="torch", diff_method="best")
         self.qnode = qnode
-        # register parameters
         self.params = nn.ParameterDict()
         for name, shape in weight_shapes.items():
             if isinstance(shape, int):
@@ -198,7 +195,7 @@ weight_shapes = {"theta": (reps, n_qubits, 3)}
 
 model = nn.Sequential(BatchedQNodeLayer(qnode, weight_shapes)).double()
 train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results = transform_data(batch_size=20)
-model, history = train_model(model, train_loader, val_loader, epochs=15, patience=5, lr=1e-3)
+model, history = train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
 test_model(Xte_t, yte_t, model)
 predictions(X_upcoming_t, results, model)
 plot_history(history)

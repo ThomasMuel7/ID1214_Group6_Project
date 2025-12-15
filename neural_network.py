@@ -18,17 +18,14 @@ np.random.seed(SEED)
 tf.random.set_seed(SEED)
 
 def load_data(use_pca=False, n_components=30):   
-    # Load processed scores with team statistics
     scores = pd.read_excel('processed_data/2025_processed_scores.xlsx')
     upcoming_scores = pd.read_excel('processed_data/2025_processed_upcoming_games.xlsx')
     
     upcoming_scores_clean = upcoming_scores.dropna()
     scores_clean = scores.dropna()
     
-    # Create results dataframe specifically from the CLEAN data
     results = upcoming_scores_clean[['Home', 'Visitor']].copy()
 
-    # Extract features (all _diff columns) and target (Home_win)
     feature_cols = [col for col in scores_clean.columns if col.endswith('_diff')]
 
     X = scores_clean[feature_cols].values
@@ -36,16 +33,13 @@ def load_data(use_pca=False, n_components=30):
     
     X_upcoming = upcoming_scores_clean[feature_cols].values
     
-    # Split data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=SEED)
         
-    # Standardize features
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     X_upcoming_scaled = scaler.transform(X_upcoming)
     
-    # Apply PCA if requested
     if use_pca:
         pca = PCA(n_components=n_components)
         X_train_scaled = pca.fit_transform(X_train_scaled)
@@ -109,7 +103,6 @@ def predictions(use_pca, X_predict, results, model):
     else : 
         filename = './predictions/classical_predictions.xlsx'
     
-    # Save predictions
     results.to_excel(filename, index=False)
     print(f"Predictions saved to {filename}")
     print(results.head())
