@@ -2,9 +2,7 @@
 import pandas as pd
 import random
 import numpy as np
-import seaborn as sns
 import pennylane as qml
-import matplotlib.pyplot as plt
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -58,13 +56,13 @@ def process_data():
 def transform_data(batch_size=20):
     X_train, X_test, X_val, X_upcoming, y_train, y_test, y_val, results = process_data()
 
-    Xtr_t = torch.from_numpy(X_train).double()
-    ytr_t = torch.from_numpy(y_train.astype(np.float64)).double().reshape(-1, 1)
-    Xval_t = torch.from_numpy(X_val).double()
-    yval_t = torch.from_numpy(y_val.astype(np.float64)).double().reshape(-1, 1)
-    Xte_t  = torch.from_numpy(X_test).double()
-    yte_t  = torch.from_numpy(y_test.astype(np.float64)).double().reshape(-1, 1)
-    X_upcoming_t = torch.from_numpy(X_upcoming).double()
+    Xtr_t = torch.from_numpy(X_train).float()
+    ytr_t = torch.from_numpy(y_train.astype(np.float64)).float().reshape(-1, 1)
+    Xval_t = torch.from_numpy(X_val).float()
+    yval_t = torch.from_numpy(y_val.astype(np.float64)).float().reshape(-1, 1)
+    Xte_t  = torch.from_numpy(X_test).float()
+    yte_t  = torch.from_numpy(y_test.astype(np.float64)).float().reshape(-1, 1)
+    X_upcoming_t = torch.from_numpy(X_upcoming).float()
         
     train_loader = DataLoader(TensorDataset(Xtr_t, ytr_t), batch_size=batch_size, shuffle=True)
     val_loader   = DataLoader(TensorDataset(Xval_t, yval_t), batch_size=batch_size, shuffle=False)
@@ -90,11 +88,11 @@ class BatchedQNodeLayer(nn.Module):
                 shape = tuple(shape)
             else:
                 raise ValueError(f"Invalid shape for {name}: {shape}")
-            p = nn.Parameter(torch.randn(*shape, dtype=torch.float64) * 0.1)
+            p = nn.Parameter(torch.randn(*shape, dtype=torch.float32) * 0.1)
             self.params[name] = p
 
     def forward(self, x):
-        x = x.to(dtype=torch.float64)
+        x = x.to(dtype=torch.float32)
         if x.ndim == 1:
             x = x.unsqueeze(0)
         outs = []
@@ -164,15 +162,7 @@ def test_model(Xte_t, y_test, model):
 
     cm = confusion_matrix(y_test, y_pred)
     report = classification_report(y_test, y_pred, digits=4)
-    print("="*60)
-    print(report)
-    
-    plt.figure()
-    sns.set(font_scale=1.0)
-    ax = sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.title("Confusion Matrix")
-    plt.tight_layout()
-    plt.show()
+    return cm, report
     
 def predictions(X_upcoming_t, results, model):
     with torch.no_grad():
@@ -184,18 +174,32 @@ def predictions(X_upcoming_t, results, model):
     print(f"Predictions saved to ./predictions/quantum_predictions.xlsx")
     print(results.head())
 
-def plot_history(history):
-    plt.plot(history['train_loss'], label='Train Loss')
-    plt.plot(history['val_loss'], label='Validation Loss')
-    plt.legend()
-    plt.show()
+def save_stats(history, cm, report):
+    report_path = "./model_stats/quantum.txt"
+    with open(report_path, "w") as f:
+        f.write(str(cm))
+        f.write("\n")
+        f.write("\n")
+        f.write(str(report))
+        f.write("\n")
+        f.write(f"Training loss: {history["train_loss"]}")
+        f.write("\n")
+        f.write(f"Validation loss: {history["val_loss"]}")
+    print(f"Stats saved to {report_path}")
+    
+def save_model(model):    
+    filename = './model/quantum.pth'
+    torch.save(model.state_dict(), filename)
+    print(f"Model saved to {filename}")
     
 #------- Main code execution -------
 weight_shapes = {"theta": (reps, n_qubits, 3)}
 
-model = nn.Sequential(BatchedQNodeLayer(qnode, weight_shapes)).double()
+model = nn.Sequential(BatchedQNodeLayer(qnode, weight_shapes)).float()
 train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results = transform_data(batch_size=20)
 model, history = train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
-test_model(Xte_t, yte_t, model)
+cm, report = test_model(Xte_t, yte_t, model)
+print(report)
+save_stats(history=history, cm=cm, report=report)
+save_model(model=model)
 predictions(X_upcoming_t, results, model)
-plot_history(history)

@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import pennylane as qml
-import seaborn as sns
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -147,7 +145,6 @@ def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
         model.load_state_dict(best_state)
     return model, history
 
-
 def test_model(Xte_t, y_test, model):
     model.eval()
     with torch.no_grad():
@@ -161,15 +158,7 @@ def test_model(Xte_t, y_test, model):
 
     cm = confusion_matrix(y_test, y_pred)
     report = classification_report(y_test, y_pred, digits=4)
-    print("="*60)
-    print(report)
-    
-    plt.figure()
-    sns.set(font_scale=1.0)
-    ax = sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.title("Confusion Matrix")
-    plt.tight_layout()
-    plt.show()
+    return cm, report
 
 def predictions(use_pca, X_upcoming_t, results, model):
     model.eval()
@@ -189,20 +178,40 @@ def predictions(use_pca, X_upcoming_t, results, model):
     print(f"Predictions saved to {filename}")
     print(results.head())
 
-def plot_history(history):
-    plt.plot(history['train_loss'], label='Train Loss')
-    plt.plot(history['val_loss'], label='Validation Loss')
-    plt.legend()
-    plt.show()
+def save_stats(history, cm, report, use_pca):
+    if use_pca:
+        report_path = "./model_stats/hybrid_pca.txt"
+    else:
+        report_path = "./model_stats/hybrid.txt"
+    with open(report_path, "w") as f:
+        f.write(str(cm))
+        f.write("\n")
+        f.write("\n")
+        f.write(str(report))
+        f.write("\n")
+        f.write(f"Training loss: {history["train_loss"]}")
+        f.write("\n")
+        f.write(f"Validation loss: {history["val_loss"]}")
+    print(f"Stats saved to {report_path}")
     
+def save_model(model, use_pca):    
+    if use_pca:
+        filename = './model/hybrid_pca.pth'
+    else:
+        filename = './model/hybrid.pth'
+    torch.save(model.state_dict(), filename)
+    print(f"Model saved to {filename}") 
+   
 #------- Main code execution -------
-use_pca = False
-n_components = 30
+use_pca = True
+n_components = 32
 weight_shapes = {"theta": (reps, n_qubits, 3)}
 
 train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results, input_dim = transform_data(batch_size=20, use_pca=use_pca, n_components=n_components)
 model = HybridBinaryClassifier(num_dim=input_dim, n_qubits=n_qubits, weight_shapes=weight_shapes)
 model, history = train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
-test_model(Xte_t, yte_t, model)
+cm, report = test_model(Xte_t, yte_t, model)
+print(report)
+save_stats(history=history, cm=cm, report=report, use_pca=use_pca)
+save_model(model=model, use_pca=use_pca)
 predictions(use_pca=use_pca, X_upcoming_t=X_upcoming_t, results=results, model=model)
-plot_history(history)

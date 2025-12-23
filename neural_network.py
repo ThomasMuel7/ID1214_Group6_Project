@@ -1,6 +1,4 @@
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 import numpy as np
 import random
 from sklearn.model_selection import train_test_split
@@ -52,8 +50,7 @@ def create_model(input_dim):
     model = keras.Sequential([
         layers.InputLayer(input_shape=(input_dim,)),
         layers.Dense(128, activation='relu'),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(32, activation='relu'),
+        layers.Dense(128, activation='relu'),
         layers.Dense(1, activation='sigmoid'),
     ])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -82,14 +79,7 @@ def test_model(model, X_test_scaled, y_test):
     
     cm = confusion_matrix(y_test, y_pred)
     report = classification_report(y_test, y_pred, digits=4)
-    print("="*60)
-    print(report)
-    plt.figure()
-    sns.set(font_scale=1.0)
-    ax = sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.title("Confusion Matrix")
-    plt.tight_layout()
-    plt.show()
+    return cm, report
 
 def predictions(use_pca, X_predict, results, model):
     predictions_prob = model.predict(X_predict, verbose=0)
@@ -107,19 +97,39 @@ def predictions(use_pca, X_predict, results, model):
     print(f"Predictions saved to {filename}")
     print(results.head())
 
-def plot_history(history):
-    plt.plot(history.history['loss'], label='Train Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.legend()
-    plt.show()
+def save_stats(history, cm, report, use_pca):
+    if use_pca:
+        report_path = "./model_stats/classical_pca.txt"
+    else:
+        report_path = "./model_stats/classical.txt"
+    with open(report_path, "w") as f:
+        f.write(str(cm))
+        f.write("\n")
+        f.write("\n")
+        f.write(str(report))
+        f.write("\n")
+        f.write(f"Training loss: {history.history["loss"]}")
+        f.write("\n")
+        f.write(f"Validation loss: {history.history["val_loss"]}")
+    print(f"Stats saved to {report_path}")
+
+def save_model(model, use_pca):    
+    if use_pca:
+        filename = './model/classical_pca.keras'
+    else:
+        filename = './model/classical.keras'
+    model.save(filename)
+    print(f"Model saved to {filename}")
     
 # --- Main Execution ---
-use_pca = True
+use_pca = False
 n_components = 32
 
 X_train_scaled, X_test_scaled, X_upcoming_scaled, y_train, y_test, results, number_feature_cols = load_data(use_pca=use_pca, n_components=n_components) 
 model = create_model(input_dim=number_feature_cols)
 model, history = train_model(model, X_train_scaled, y_train, epoch=500)
-test_model(model, X_test_scaled, y_test)
+cm, report = test_model(model, X_test_scaled, y_test)
+print(report)
+save_stats(history=history, cm=cm, report=report, use_pca=use_pca)
+save_model(model=model, use_pca=use_pca)
 predictions(use_pca, X_upcoming_scaled, results, model)
-plot_history(history)
