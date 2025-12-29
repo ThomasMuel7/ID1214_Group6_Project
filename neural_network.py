@@ -10,10 +10,10 @@ from tensorflow.keras import layers
 from sklearn.metrics import confusion_matrix, classification_report
 
 #Reproducibility
-SEED = 42
+SEED = 54
 random.seed(SEED)
 np.random.seed(SEED)
-tf.random.set_seed(SEED)
+tf.random.set_seed(SEED) 
 
 def load_data(use_pca=False, n_components=30):   
     scores = pd.read_excel('processed_data/2025_processed_scores.xlsx')
@@ -50,7 +50,7 @@ def create_model(input_dim):
     model = keras.Sequential([
         layers.InputLayer(input_shape=(input_dim,)),
         layers.Dense(128, activation='relu'),
-        layers.Dense(128, activation='relu'),
+        layers.Dense(256, activation='relu'),
         layers.Dense(1, activation='sigmoid'),
     ])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -125,7 +125,7 @@ def save_model(model, use_pca):
 use_pca = False
 n_components = 32
 
-X_train_scaled, X_test_scaled, X_upcoming_scaled, y_train, y_test, results, number_feature_cols = load_data(use_pca=use_pca, n_components=n_components) 
+X_train_scaled, X_test_scaled, X_upcoming_scaled, y_train, y_test, results, number_feature_cols = load_data(use_pca=use_pca, n_components=n_components)
 model = create_model(input_dim=number_feature_cols)
 model, history = train_model(model, X_train_scaled, y_train, epoch=500)
 cm, report = test_model(model, X_test_scaled, y_test)

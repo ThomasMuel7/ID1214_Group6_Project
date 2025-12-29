@@ -16,8 +16,8 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.set_default_dtype(torch.float64)
 
-n_qubits = 16
-reps = 1
+n_qubits = 4
+reps = 3
 dev = qml.device("lightning.qubit", wires=n_qubits)
 
 def process_data(use_pca=False, n_components=30):
@@ -51,7 +51,6 @@ def process_data(use_pca=False, n_components=30):
         X_upcoming = pca.transform(X_upcoming)
     
     input_dim = X_train.shape[1]
-    
     return X_train, X_test, X_val, X_upcoming, y_train, y_test, y_val, results, input_dim
 
 def transform_data(use_pca=False, n_components=30, batch_size=20):
@@ -81,9 +80,9 @@ def qnode(inputs, theta):
 class HybridBinaryClassifier(nn.Module):
     def __init__(self, num_dim, n_qubits, weight_shapes):
         super().__init__()
-        self.fc1 = nn.Linear(num_dim, 64)
-        self.fc2 = nn.Linear(64, 32)
-        self.fc3 = nn.Linear(32, n_qubits) 
+        self.fc1 = nn.Linear(num_dim, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, n_qubits) 
         self.act1 = nn.ReLU()
         self.act_out = nn.Tanh() 
         self.qlayer = qml.qnn.TorchLayer(qnode, weight_shapes)
@@ -203,7 +202,7 @@ def save_model(model, use_pca):
     print(f"Model saved to {filename}") 
    
 #------- Main code execution -------
-use_pca = True
+use_pca = False
 n_components = 32
 weight_shapes = {"theta": (reps, n_qubits, 3)}
 
