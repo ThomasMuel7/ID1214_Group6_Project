@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import numpy as np
 import pennylane as qml
+import os
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -12,6 +13,9 @@ from sklearn.metrics import confusion_matrix, classification_report
 import torch.nn as nn
 import torch
 from torch.utils.data import TensorDataset, DataLoader
+import seaborn as sns
+import matplotlib.pyplot as plt
+from time import time
 
 reps = 2
 n_qubits = 7
@@ -110,10 +114,12 @@ def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
     best_val_loss = float('inf')
     best_state = None
     epochs_no_improve = 0
-    history = {'train_loss': [], 'val_loss': []}
+    history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'train_time': [], 'val_time': []}
     for epoch in range(1, epochs+1):
+        train_start = time()
         model.train()
         train_loss = 0.0
+        train_correct = 0
         for xb, yb in train_loader:
             opt.zero_grad()
             preds = model(xb)
@@ -121,17 +127,29 @@ def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
             loss.backward()
             opt.step()
             train_loss += loss.item() * xb.size(0)
-            
+            predicted = (preds >= 0.5).double()
+            train_correct += (predicted == yb).sum().item()
+        train_end = time()
         train_loss /= len(train_loader.dataset)
+        train_acc = train_correct / len(train_loader.dataset)
 
         model.eval()
+        val_start = time()
         val_loss = 0.0
+        val_correct = 0
         with torch.no_grad():
             for xb, yb in val_loader:
                 preds = model(xb)
                 loss = criterion(preds, yb)
                 val_loss += loss.item() * xb.size(0)
+                predicted = (preds >= 0.5).double()
+                val_correct += (predicted == yb).sum().item()
+        val_end = time()
         val_loss /= len(val_loader.dataset)
+        val_acc = val_correct / len(val_loader.dataset)
+
+        history['train_time'].append(train_end - train_start)
+        history['val_time'].append(val_end - val_start)
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -144,7 +162,9 @@ def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
                 break
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
-        print(f"Epoch {epoch:02d}/{epochs} - loss: {train_loss:.4f} - val_loss: {val_loss:.4f}")
+        history['train_acc'].append(train_acc)
+        history['val_acc'].append(val_acc)
+        print(f"Epoch {epoch:02d}/{epochs} -     loss: {train_loss:.4f} - val_loss: {val_loss:.4f} - acc: {train_acc:.4f} - val_acc: {val_acc:.4f}")
         
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -162,8 +182,6 @@ def test_model(Xte_t, y_test, model):
 
     cm = confusion_matrix(y_test, y_pred)
     report = classification_report(y_test, y_pred, digits=4)
-    accuracy = np.mean(y_pred == y_test.reshape(-1, 1))
-    print(accuracy)
     return cm, report
     
 def predictions(X_upcoming_t, results, model):
@@ -174,20 +192,93 @@ def predictions(X_upcoming_t, results, model):
     results['Model_home_win_probability'] = probs
     results.to_excel('./predictions/quantum_predictions.xlsx', index=False)
     print(f"Predictions saved to ./predictions/quantum_predictions.xlsx")
-    print(results.head())
 
-def save_stats(history, cm, report):
-    report_path = "./model_stats/quantum.txt"
-    with open(report_path, "w") as f:
-        f.write(str(cm))
-        f.write("\n")
-        f.write("\n")
-        f.write(str(report))
-        f.write("\n")
-        f.write(f"Training loss: {history["train_loss"]}")
-        f.write("\n")
-        f.write(f"Validation loss: {history["val_loss"]}")
-    print(f"Stats saved to {report_path}")
+def save_stats(history, cm, report, seed=None, n_components=None):
+    out_dir = "./model_stats/quantum"
+    os.makedirs(out_dir, exist_ok=True)
+    report_path = os.path.join(out_dir, 'report.txt')
+    loss_path = os.path.join(out_dir, 'loss.png')
+    acc_path = os.path.join(out_dir, 'accuracy.png')
+    cm_path = os.path.join(out_dir, 'confusion_matrix.png')
+    time_path = os.path.join(out_dir, 'training_time.png')
+
+    # write report
+    train_losses = history.get('train_loss', [])
+    val_losses = history.get('val_loss', [])
+    train_acc = history.get('train_acc', [])
+    val_acc = history.get('val_acc', [])
+    train_time = history.get('train_time', [])
+    val_time = history.get('val_time', [])
+
+    with open(report_path, 'w') as f:
+        f.write(str(report) + '\n')
+        f.write(f"Total Time = {sum(train_time) + sum(val_time)} seconds\n")
+        f.write(f"Random Seed = {seed}\n")
+        f.write(f"Number of PCA components = {n_components}\n")
+
+    # Loss plot
+    if train_losses or val_losses:
+        plt.figure(figsize=(8, 5))
+        if train_losses:
+            plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss')
+        if val_losses:
+            plt.plot(range(1, len(val_losses) + 1), val_losses, label='Val Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Training and Validation Loss')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(loss_path)
+        plt.close()
+
+    # Accuracy plot
+    if train_acc or val_acc:
+        plt.figure(figsize=(8, 5))
+        if train_acc:
+            plt.plot(range(1, len(train_acc) + 1), train_acc, label='Train Acc')
+        if val_acc:
+            plt.plot(range(1, len(val_acc) + 1), val_acc, label='Val Acc')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.ylim(0, 1)
+        plt.title('Training and Validation Accuracy')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(acc_path)
+        plt.close()
+
+    # Confusion matrix
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False,
+                    xticklabels=['Pred 0', 'Pred 1'], yticklabels=['True 0', 'True 1'])
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title('Confusion Matrix')
+    plt.tight_layout()
+    plt.savefig(cm_path)
+    plt.close()
+    # Time plot
+    if train_time or val_time:
+        max_epochs = max(len(train_time), len(val_time))
+        tt = train_time + [0] * (max_epochs - len(train_time))
+        vt = val_time + [0] * (max_epochs - len(val_time))
+        total = [a + b for a, b in zip(tt, vt)]
+        plt.figure(figsize=(8, 5))
+        plt.plot(range(1, max_epochs + 1), tt, label='Train time (s)')
+        plt.plot(range(1, max_epochs + 1), vt, label='Val time (s)')
+        plt.plot(range(1, max_epochs + 1), total, label='Train+Val time (s)')
+        plt.xlabel('Epoch')
+        plt.ylabel('Seconds')
+        plt.title('Per-epoch Training and Validation Time')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(time_path)
+        plt.close()
+
+    print(f"Stats saved to: {out_dir}")
     
 def save_model(model):    
     filename = './model/quantum.pth'
@@ -201,7 +292,6 @@ model = nn.Sequential(BatchedQNodeLayer(qnode, weight_shapes)).float()
 train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results = transform_data(batch_size=20)
 model, history = train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
 cm, report = test_model(Xte_t, yte_t, model)
-print(report)
-save_stats(history=history, cm=cm, report=report)
+save_stats(history=history, cm=cm, report=report, seed=SEED, n_components=n_qubits)
 save_model(model=model)
 predictions(X_upcoming_t, results, model)

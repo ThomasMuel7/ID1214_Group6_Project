@@ -1,0 +1,12 @@
+              precision    recall  f1-score   support
+
+           0     0.8000    0.8000    0.8000        10
+           1     0.8462    0.8462    0.8462        13
+
+    accuracy                         0.8261        23
+   macro avg     0.8231    0.8231    0.8231        23
+weighted avg     0.8261    0.8261    0.8261        23
+
+ Total Time = 7.666292428970337 seconds
+ Random Seed = 1234
+ Number of PCA components = 32

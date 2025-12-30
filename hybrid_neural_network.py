@@ -4,11 +4,16 @@ import pennylane as qml
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import os
+import seaborn as sns
+import matplotlib.pyplot as plt
+from time import time
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
+
 
 # Reproducibility
 SEED = 1234
@@ -100,14 +105,16 @@ class HybridBinaryClassifier(nn.Module):
 
 def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3):
     criterion = nn.BCELoss()
-    opt = optim.Adam(model.parameters(), lr=0.001)
+    opt = optim.Adam(model.parameters(), lr=lr)
     best_val_loss = float('inf')
     best_state = None
     epochs_no_improve = 0
-    history = {'train_loss': [], 'val_loss': []}
+    history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'train_time': [], 'val_time' : []}
     for epoch in range(1, epochs+1):
+        train_start_time = time()
         model.train()
         train_loss = 0.0
+        train_correct = 0
         for xb, yb in train_loader:
             opt.zero_grad()
             preds = model(xb)
@@ -115,18 +122,27 @@ def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
             loss.backward()
             opt.step()
             train_loss += loss.item() * xb.size(0)
-            
-        train_loss /= len(train_loader.dataset)
+            # accumulate training correct predictions
+            predicted = (preds >= 0.5).double()
+            train_correct += (predicted == yb).sum().item()
 
+        train_loss /= len(train_loader.dataset)
+        train_acc = train_correct / len(train_loader.dataset)
+        train_end_time = time()
         model.eval()
         val_loss = 0.0
+        val_correct = 0
+        val_start_time = time()
         with torch.no_grad():
             for xb, yb in val_loader:
                 preds = model(xb)
                 loss = criterion(preds, yb)
                 val_loss += loss.item() * xb.size(0)
+                predicted = (preds >= 0.5).double()
+                val_correct += (predicted == yb).sum().item()
         val_loss /= len(val_loader.dataset)
-
+        val_acc = val_correct / len(val_loader.dataset)
+        val_end_time = time()
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
@@ -138,7 +154,11 @@ def train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
                 break
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
-        print(f"Epoch {epoch:02d}/{epochs} - loss: {train_loss:.4f} - val_loss: {val_loss:.4f}")
+        history['train_acc'].append(train_acc)
+        history['val_acc'].append(val_acc)
+        history['train_time'].append(train_end_time - train_start_time)
+        history['val_time'].append(val_end_time - val_start_time)
+        print(f"Epoch {epoch:02d}/{epochs} -     loss: {train_loss:.4f} - val_loss: {val_loss:.4f} - acc: {train_acc:.4f} - val_acc: {val_acc:.4f}")
         
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -175,23 +195,94 @@ def predictions(use_pca, X_upcoming_t, results, model):
         
     results.to_excel(filename, index=False)
     print(f"Predictions saved to {filename}")
-    print(results.head())
 
-def save_stats(history, cm, report, use_pca):
+def save_stats(history, cm, report, seed, n_components, model, use_pca):
     if use_pca:
-        report_path = "./model_stats/hybrid_pca.txt"
+        os.makedirs("./model_stats/hybrid_pca", exist_ok=True)
+        report_path = "./model_stats/hybrid_pca/report.txt"
+        loss_path = "./model_stats/hybrid_pca/loss.png"
+        acc_path = "./model_stats/hybrid_pca/accuracy.png"
+        cm_path = "./model_stats/hybrid_pca/confusion_matrix.png"
+        time_path = "./model_stats/hybrid_pca/training_time.png"
     else:
-        report_path = "./model_stats/hybrid.txt"
-    with open(report_path, "w") as f:
-        f.write(str(cm))
-        f.write("\n")
-        f.write("\n")
+        os.makedirs("./model_stats/hybrid", exist_ok=True)
+        report_path = "./model_stats/hybrid/report.txt"
+        loss_path = "./model_stats/hybrid/loss.png"
+        acc_path = "./model_stats/hybrid/accuracy.png"
+        cm_path = "./model_stats/hybrid/confusion_matrix.png"
+        time_path = "./model_stats/hybrid/training_time.png"
+    # Prepare history arrays (safely)
+    train_losses = list(history.get('train_loss', []))
+    val_losses = list(history.get('val_loss', []))
+    train_acc = list(history.get('train_acc', []))
+    val_acc = list(history.get('val_acc', []))
+    train_time = list(history.get('train_time', []))
+    val_time = list(history.get('val_time', []))
+    # Save textual report
+    with open(report_path, 'w') as f:
         f.write(str(report))
-        f.write("\n")
-        f.write(f"Training loss: {history["train_loss"]}")
-        f.write("\n")
-        f.write(f"Validation loss: {history["val_loss"]}")
-    print(f"Stats saved to {report_path}")
+        f.write(f'\n Total Time = {sum(train_time) + sum(val_time)} seconds\n')
+        f.write(f' Random Seed = {seed}\n')
+        f.write(f' Number of PCA components = {n_components if use_pca else "N/A"}\n')
+    # Loss figure
+    if len(train_losses) or len(val_losses):
+        plt.figure(figsize=(8, 5))
+        if len(train_losses):
+            plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss')
+        if len(val_losses):
+            plt.plot(range(1, len(val_losses) + 1), val_losses, label='Val Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Training and Validation Loss')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(loss_path)
+        plt.close()
+
+    # Accuracy figure
+    if len(train_acc) or len(val_acc):
+        plt.figure(figsize=(8, 5))
+        if len(train_acc):
+            plt.plot(range(1, len(train_acc) + 1), train_acc, label='Train Acc')
+        if len(val_acc):
+            plt.plot(range(1, len(val_acc) + 1), val_acc, label='Val Acc')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.ylim(0, 1)
+        plt.title('Training and Validation Accuracy')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(acc_path)
+        plt.close()
+
+    # Confusion matrix
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False,
+                    xticklabels=['Pred 0', 'Pred 1'], yticklabels=['True 0', 'True 1'])
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title('Confusion Matrix')
+    plt.tight_layout()
+    plt.savefig(cm_path)
+    plt.close()
+    
+    # Time figure: train, val, and total per epoch
+    total = [a + b for a, b in zip(train_time, val_time)]
+    plt.figure(figsize=(8, 5))
+    plt.plot(range(1, len(train_time) + 1), train_time, label='Train time (s)')
+    plt.plot(range(1, len(val_time) + 1), val_time, label='Val time (s)')
+    plt.plot(range(1, len(total) + 1), total, label='Train+Val time (s)')
+    plt.xlabel('Epoch')
+    plt.ylabel('Seconds')
+    plt.title('Per-epoch Training and Validation Time')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(time_path)
+    plt.close()
+    print(f"Stats saved to: {os.path.dirname(report_path)}")
     
 def save_model(model, use_pca):    
     if use_pca:
@@ -202,7 +293,7 @@ def save_model(model, use_pca):
     print(f"Model saved to {filename}") 
    
 #------- Main code execution -------
-use_pca = False
+use_pca = True
 n_components = 32
 weight_shapes = {"theta": (reps, n_qubits, 3)}
 
@@ -210,7 +301,6 @@ train_loader, val_loader, Xte_t, yte_t, X_upcoming_t, results, input_dim = trans
 model = HybridBinaryClassifier(num_dim=input_dim, n_qubits=n_qubits, weight_shapes=weight_shapes)
 model, history = train_model(model, train_loader, val_loader, epochs=50, patience=5, lr=1e-3)
 cm, report = test_model(Xte_t, yte_t, model)
-print(report)
-save_stats(history=history, cm=cm, report=report, use_pca=use_pca)
+save_stats(history=history, cm=cm, report=report, seed=SEED, n_components=n_components, model=model, use_pca=use_pca)
 save_model(model=model, use_pca=use_pca)
 predictions(use_pca=use_pca, X_upcoming_t=X_upcoming_t, results=results, model=model)
