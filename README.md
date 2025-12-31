@@ -84,10 +84,9 @@ python data_processing.py
 
 ---
 
-### Step 3: Model Training
+### Step 3: Model Training and Predictions Making
 
 You may train one or all of the following models.
-Don't forget to match the architecture to the ones presented in the report file if you want to have the best models and the one we have developed.
 
 ---
 
@@ -200,6 +199,8 @@ python evaluate_models.py
     └── quantum_predictions.xlsx
     └── ...
 ```
+
+There are other files and directories that are not mentioned above but that have helped us with the creation of the model and the writing of the report. We kept them in this git repo but they do not interfere with the experiment
 
 ---
 
