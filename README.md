@@ -27,9 +27,6 @@ Install all required libraries using `pip`:
 pip install pandas numpy requests beautifulsoup4 openpyxl scikit-learn tensorflow torch pennylane seaborn matplotlib
 ```
 
-> **Note**  
-> If you do not have GPU support configured for TensorFlow or PyTorch, the models will run on CPU by default. This is sufficient for the dataset size but may slow down **quantum simulations**.
-
 ---
 
 ## 2. Project Workflow
@@ -51,7 +48,7 @@ python get_data.py --week 14 --mode all
 #### Arguments
 
 - `--week`  
-  The last completed week of the NFL season (used to separate training data from upcoming games).  
+  The last completed week of the NFL season (used to separate training/testing/validation data from upcoming games).  
   **Default:** `14`
 
 - `--mode`
@@ -64,6 +61,10 @@ python get_data.py --week 14 --mode all
 
 #### Output
 Files are saved to the `prep_data/` directory.
+
+
+#### Note
+You don't need to run this part of the code if you want to try the architectures of our neural network that got those results.
 
 ---
 
@@ -81,6 +82,9 @@ python data_processing.py
 #### Output
 - `processed_data/2025_processed_scores.xlsx` *(Training Data)*
 - `processed_data/2025_processed_upcoming_games.xlsx` *(Prediction Data)*
+
+#### Note
+You don't need to run this part of the code if you want to try the architectures of our neural network that got those results.
 
 ---
 
@@ -181,7 +185,7 @@ python evaluate_models.py
 ├── model/
 │   ├── classical.keras
 │   ├── hybrid.pth
-│   └── quantum.pth
+│   ├── quantum.pth
 │   └── ...
 │
 ├── model_stats/
@@ -190,17 +194,17 @@ python evaluate_models.py
 │   └── quantum/
 │       ├── accuracy.png
 │       ├── loss.png
-│       └── report.txt
+│       ├── report.txt
 │       └── ...
 │
 └── predictions/
     ├── classical_predictions.xlsx
     ├── hybrid_predictions.xlsx
-    └── quantum_predictions.xlsx
+    ├── quantum_predictions.xlsx
     └── ...
 ```
 
-There are other files and directories that are not mentioned above but that have helped us with the creation of the model and the writing of the report. We kept them in this git repo but they do not interfere with the experiment
+There are other files and directories that are not mentioned above but that have helped us with the creation of the model, the writing of the report and the showing part of the presentation. We kept them in this git repo but they do not interfere with the experiment.
 
 ---
 
@@ -220,8 +224,8 @@ There are other files and directories that are not mentioned above but that have
 
 ## 5. Further Reading
 
-We haven't implemented a code for every model since some of them use PCA you might have to change the use_pca variable to `True` or not depending on what you want to do. You might also have to change the architecture of the neural network itself since we only kept 3 of the 5 models in the files. They are hardcoded.
+We haven't hardcoded every model since some of them have different architectures and some also use PCA. Depending on the model you want to train and try out, you might have to toggle the use_pca variable to `True`. You might also have to change the architecture of the neural network itself since we only kept 3 of the 5 models in the files. They are hardcoded.
 
-We could have changed this in order to make it such that we can chose directly which model we want in order to make it work but we felt like it was better to allow you to change the model architecture as you want and make it modulable. 
+We could have changed this in order chose directly which model we want to try. But we felt like it was better to allow you to change the model architecture as you want and make it modulable. 
 
 We also haven't created any files/code that retrieves one of the models to make further predictions. We always have to train it first in order to get the predictions. But feel free to implement a file like that.

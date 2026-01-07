@@ -8,6 +8,6 @@
 weighted avg     0.8200    0.8000    0.8000        45
 
 
- Total Time = 2.936347246170044 seconds
+ Total Time = 3.2358908653259277 seconds
  Random Seed = 54
  Number of PCA components = 32
